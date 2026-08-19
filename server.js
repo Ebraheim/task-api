@@ -1,40 +1,68 @@
 require("dotenv").config();
-require("dotenv").config();
 
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./openapi.json");
+
 const taskService = require("./services/taskService");
 const supabase = require("./config/supabaseClient");
+const authMiddleware = require("./middleware/authMiddleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/* =========================
+   MIDDLEWARE
+========================= */
+
 app.use(express.json());
 
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(
+  "/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument)
+);
+
+/* =========================
+   BASIC ROUTES
+========================= */
 
 app.get("/", (req, res) => {
-  res.json({
+  res.status(200).json({
     name: "Task API",
-    version: "2.0",
+    version: "3.0",
     database: "PostgreSQL",
-    endpoints: ["/tasks"],
+    authentication: "Supabase Auth",
+    endpoints: [
+      "/tasks",
+      "/auth/signup",
+      "/auth/login",
+      "/auth/logout",
+      "/public/info",
+      "/protected/profile",
+      "/protected/dashboard",
+      "/docs",
+    ],
   });
 });
 
 app.get("/health", (req, res) => {
-  res.json({
+  res.status(200).json({
     status: "ok",
   });
 });
 
+/* =========================
+   TASK ROUTES
+========================= */
+
 app.get("/tasks", async (req, res) => {
   try {
     const tasks = await taskService.getAllTasks();
-    res.json(tasks);
+
+    res.status(200).json(tasks);
   } catch (error) {
-    console.error(error);
+    console.error("GET /tasks error:", error);
 
     res.status(500).json({
       error: "Database error",
@@ -45,6 +73,7 @@ app.get("/tasks", async (req, res) => {
 app.get("/tasks/:id", async (req, res) => {
   try {
     const taskId = Number(req.params.id);
+
     const task = await taskService.getTaskById(taskId);
 
     if (!task) {
@@ -53,9 +82,9 @@ app.get("/tasks/:id", async (req, res) => {
       });
     }
 
-    res.json(task);
+    res.status(200).json(task);
   } catch (error) {
-    console.error(error);
+    console.error("GET /tasks/:id error:", error);
 
     res.status(500).json({
       error: "Database error",
@@ -67,17 +96,23 @@ app.post("/tasks", async (req, res) => {
   try {
     const { title } = req.body;
 
-    if (!title || typeof title !== "string" || title.trim() === "") {
+    if (
+      !title ||
+      typeof title !== "string" ||
+      title.trim() === ""
+    ) {
       return res.status(400).json({
         error: "Title is required and must not be empty",
       });
     }
 
-    const newTask = await taskService.createTask(title.trim());
+    const newTask = await taskService.createTask(
+      title.trim()
+    );
 
     res.status(201).json(newTask);
   } catch (error) {
-    console.error(error);
+    console.error("POST /tasks error:", error);
 
     res.status(500).json({
       error: "Database error",
@@ -89,7 +124,8 @@ app.put("/tasks/:id", async (req, res) => {
   try {
     const taskId = Number(req.params.id);
 
-    const existingTask = await taskService.getTaskById(taskId);
+    const existingTask =
+      await taskService.getTaskById(taskId);
 
     if (!existingTask) {
       return res.status(404).json({
@@ -99,7 +135,10 @@ app.put("/tasks/:id", async (req, res) => {
 
     const { title, done } = req.body;
 
-    if (title === undefined && done === undefined) {
+    if (
+      title === undefined &&
+      done === undefined
+    ) {
       return res.status(400).json({
         error: "Provide a title or done value",
       });
@@ -107,34 +146,43 @@ app.put("/tasks/:id", async (req, res) => {
 
     if (
       title !== undefined &&
-      (typeof title !== "string" || title.trim() === "")
+      (typeof title !== "string" ||
+        title.trim() === "")
     ) {
       return res.status(400).json({
         error: "Title must be a non-empty string",
       });
     }
 
-    if (done !== undefined && typeof done !== "boolean") {
+    if (
+      done !== undefined &&
+      typeof done !== "boolean"
+    ) {
       return res.status(400).json({
         error: "Done must be true or false",
       });
     }
 
     const updatedTitle =
-      title !== undefined ? title.trim() : existingTask.title;
+      title !== undefined
+        ? title.trim()
+        : existingTask.title;
 
     const updatedDone =
-      done !== undefined ? done : existingTask.done;
+      done !== undefined
+        ? done
+        : existingTask.done;
 
-    const updatedTask = await taskService.updateTask(
-      taskId,
-      updatedTitle,
-      updatedDone
-    );
+    const updatedTask =
+      await taskService.updateTask(
+        taskId,
+        updatedTitle,
+        updatedDone
+      );
 
     res.status(200).json(updatedTask);
   } catch (error) {
-    console.error(error);
+    console.error("PUT /tasks/:id error:", error);
 
     res.status(500).json({
       error: "Database error",
@@ -146,7 +194,8 @@ app.delete("/tasks/:id", async (req, res) => {
   try {
     const taskId = Number(req.params.id);
 
-    const deleted = await taskService.deleteTask(taskId);
+    const deleted =
+      await taskService.deleteTask(taskId);
 
     if (!deleted) {
       return res.status(404).json({
@@ -156,13 +205,17 @@ app.delete("/tasks/:id", async (req, res) => {
 
     res.status(204).send();
   } catch (error) {
-    console.error(error);
+    console.error("DELETE /tasks/:id error:", error);
 
     res.status(500).json({
       error: "Database error",
     });
   }
 });
+
+/* =========================
+   AUTH - SIGNUP
+========================= */
 
 app.post("/auth/signup", async (req, res) => {
   try {
@@ -174,10 +227,11 @@ app.post("/auth/signup", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { data, error } =
+      await supabase.auth.signUp({
+        email,
+        password,
+      });
 
     if (error) {
       return res.status(400).json({
@@ -189,12 +243,17 @@ app.post("/auth/signup", async (req, res) => {
       user: data.user,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Signup error:", error);
+
     res.status(500).json({
       error: "Server error",
     });
   }
 });
+
+/* =========================
+   AUTH - LOGIN
+========================= */
 
 app.post("/auth/login", async (req, res) => {
   try {
@@ -206,80 +265,133 @@ app.post("/auth/login", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
+    if (
+      error ||
+      !data ||
+      !data.session
+    ) {
       return res.status(401).json({
         error: "Invalid login credentials",
       });
     }
 
     res.status(200).json({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
+      access_token:
+        data.session.access_token,
+      refresh_token:
+        data.session.refresh_token,
       user: data.user,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
+
     res.status(500).json({
       error: "Server error",
     });
   }
 });
+
+/* =========================
+   PUBLIC ROUTE
+========================= */
 
 app.get("/public/info", (req, res) => {
   res.status(200).json({
-    message: "Welcome stranger! This info is public.",
+    message:
+      "Welcome stranger! This info is public.",
   });
 });
 
-app.get("/protected/profile", async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
+/* =========================
+   PROTECTED PROFILE
+========================= */
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        error: "Access token required",
-      });
-    }
-
-    const token = authHeader.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({
-        error: "Access token required",
-      });
-    }
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({
-        error: "Invalid or expired token",
-      });
-    }
-
+app.get(
+  "/protected/profile",
+  authMiddleware,
+  (req, res) => {
     res.status(200).json({
-      id: user.id,
-      email: user.email,
-      created_at: user.created_at,
-    });
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).json({
-      error: "Server error",
+      id: req.user.id,
+      email: req.user.email,
+      created_at: req.user.created_at,
     });
   }
+);
+
+/* =========================
+   PROTECTED DASHBOARD
+========================= */
+
+app.get(
+  "/protected/dashboard",
+  authMiddleware,
+  (req, res) => {
+    res.status(200).json({
+      message:
+        "Welcome to the protected dashboard",
+      user: req.user.email,
+    });
+  }
+);
+
+/* =========================
+   LOGOUT
+========================= */
+
+app.post(
+  "/auth/logout",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const { error } =
+        await supabase.auth.signOut();
+
+      if (error) {
+        return res.status(400).json({
+          error: error.message,
+        });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      console.error("Logout error:", error);
+
+      res.status(500).json({
+        error: "Server error",
+      });
+    }
+  }
+);
+
+/* =========================
+   SERVER
+========================= */
+
+const server = app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `Server running on port ${PORT}`
+    );
+    console.log(
+      "Server running and connected to Supabase"
+    );
+  }
+);
+
+server.on("error", (error) => {
+  console.error("Server error:", error);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log("Server running and connected to Supabase");
-});
+/*
+  Explicitly keep the HTTP server referenced
+  in Node's event loop.
+*/
+server.ref();
