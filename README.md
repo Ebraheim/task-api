@@ -395,3 +395,255 @@ docker compose up
 After the restart, the `Persistence test` task was still returned by the API.
 
 This confirms that PostgreSQL data is persisted using the `postgres_data` Docker volume.
+
+
+# Week 4 — Auth: Login & Protect
+
+This assignment extends the existing Task API by adding authentication using **Supabase Auth**.
+
+The existing CRUD API, PostgreSQL database, Docker setup, service layer, and repository layer remain unchanged. This task focuses only on adding login, JWT verification, protected routes, logout, reusable authentication middleware, and Swagger Bearer Token authorization.
+
+## What Was Added
+
+- User signup
+- User login
+- Access token
+- Refresh token
+- JWT verification
+- Public route
+- Protected profile route
+- Protected dashboard route
+- Reusable authentication middleware
+- Logout endpoint
+- Swagger Bearer authentication
+
+## Technologies Used
+
+- Node.js
+- Express.js
+- Supabase Auth
+- `@supabase/supabase-js`
+- JWT / Bearer Tokens
+- Swagger UI
+- OpenAPI 3.0
+
+## Supabase Setup
+
+The Supabase client is configured in:
+
+```text
+config/supabaseClient.js
+
+User
+  |
+  | email + password
+  v
+POST /auth/login
+  |
+  v
+Supabase Auth
+  |
+  | access token + refresh token
+  v
+Client
+  |
+  | Authorization: Bearer <token>
+  v
+Auth Middleware
+  |
+  | verifies token with Supabase
+  v
+Protected Route
+
+Authentication Endpoints
+Method	Endpoint	Authentication	Description
+POST	/auth/signup	No	Create a new user account
+POST	/auth/login	No	Login and receive tokens
+POST	/auth/logout	Yes	Logout authenticated user
+GET	/public/info	No	Public route
+GET	/protected/profile	Yes	View authenticated user profile
+GET	/protected/dashboard	Yes	View protected dashboard
+Signup
+
+Endpoint:
+
+POST /auth/signup
+
+Example request:
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+Successful signup returns:
+
+201 Created
+
+Missing email or password returns:
+
+400 Bad Request
+Login
+
+Endpoint:
+
+POST /auth/login
+
+Example request:
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+Successful login returns:
+
+access_token
+refresh_token
+user information
+
+Successful login:
+
+200 OK
+
+Invalid credentials:
+
+401 Unauthorized
+Public Route
+
+Endpoint:
+
+GET /public/info
+
+This route does not require authentication.
+
+Example response:
+
+{
+  "message": "Welcome stranger! This info is public."
+}
+Protected Profile
+
+Endpoint:
+
+GET /protected/profile
+
+Requires:
+
+Authorization: Bearer <access_token>
+
+A valid token returns the authenticated user.
+
+Example:
+
+{
+  "id": "user-id",
+  "email": "user@example.com",
+  "created_at": "..."
+}
+
+Missing, invalid, or expired tokens return:
+
+401 Unauthorized
+Protected Dashboard
+
+Endpoint:
+
+GET /protected/dashboard
+
+This route also uses the reusable authentication middleware.
+
+Example response:
+
+{
+  "message": "Welcome to the protected dashboard",
+  "user": "user@example.com"
+}
+Authentication Middleware
+
+Authentication logic is stored in:
+
+middleware/authMiddleware.js
+
+The middleware:
+
+Reads the Authorization header.
+Checks for the Bearer token format.
+Extracts the token.
+Verifies the token using Supabase.
+Returns 401 for missing or invalid tokens.
+Adds the authenticated user to req.user.
+Calls next() to continue to the protected route.
+Logout
+
+Endpoint:
+
+POST /auth/logout
+
+The route is protected by the authentication middleware.
+
+Successful logout returns:
+
+204 No Content
+Swagger Bearer Authentication
+
+Swagger UI is available at:
+
+http://localhost:3000/docs
+
+Swagger now includes Bearer Token authorization.
+
+To test a protected route:
+
+Run POST /auth/login
+Copy the returned access_token
+Click Authorize
+Paste the JWT token
+Click Authorize
+Open GET /protected/profile
+Click Try it out
+Click Execute
+
+A successful authenticated request returns:
+
+200 OK
+Swagger Authentication Screenshot
+
+The screenshot shows successful Bearer Token authorization and access to the protected profile endpoint.
+
+Files Added or Updated
+config/supabaseClient.js
+middleware/authMiddleware.js
+server.js
+openapi.json
+.env.example
+package.json
+package-lock.json
+README.md
+Security
+
+Real Supabase credentials are stored only in:
+
+.env
+
+The .env file is ignored by Git.
+
+Access tokens and real credentials are not committed to GitHub.
+
+Supabase manages user authentication and passwords.
+
+What I Learned
+
+This assignment helped me understand how authentication works in a backend API.
+
+I learned how to:
+
+create users
+log users in
+receive access and refresh tokens
+send JWTs in the Authorization header
+verify tokens with Supabase
+create reusable authentication middleware
+protect API routes
+implement logout
+configure Swagger Bearer authentication
