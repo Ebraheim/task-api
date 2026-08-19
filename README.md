@@ -212,3 +212,186 @@ Client -> API -> SQLite Database
 ```
 
 The main lesson from this assignment is that the API describes what the application does, while the database determines where the data is stored.
+
+
+## A3 — Containerize Your Stack
+
+This project has now been extended for **A3 — Containerize Your Stack (Week 3)**.
+
+### Assignment progression
+
+The project has been developed across multiple assignments:
+
+1. **Assignment 1 / Task 1** — CRUD Task API using an in-memory JavaScript array.
+2. **Week 3 — Assignment 1** — replaced the in-memory storage with SQLite so tasks persisted after restarting the Node.js application.
+3. **A3 — Containerize Your Stack** — replaced SQLite with PostgreSQL running in Docker and containerized the Node.js application.
+
+The current architecture is:
+
+```text
+Client
+  |
+  v
+Express API
+  |
+  v
+Task Service
+  |
+  v
+Postgres Repository
+  |
+  v
+PostgreSQL Docker Container
+```
+
+## PostgreSQL
+
+The current version uses **PostgreSQL 16** instead of SQLite.
+
+PostgreSQL runs inside a Docker container and stores its data in a named Docker volume:
+
+```text
+postgres_data
+```
+
+This allows task data to remain available when the containers are stopped and restarted.
+
+## Environment Configuration
+
+Database configuration is loaded from a local `.env` file.
+
+The `.env` file is excluded from Git using `.gitignore`.
+
+A safe example configuration is included in:
+
+```text
+.env.example
+```
+
+The application uses the following connection variable:
+
+```text
+DATABASE_URL
+```
+
+## Database Initialization
+
+The database schema is created using:
+
+```text
+init.sql
+```
+
+The script creates the `tasks` table:
+
+```sql
+CREATE TABLE IF NOT EXISTS tasks (
+  id SERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  done BOOLEAN NOT NULL DEFAULT FALSE
+);
+```
+
+Example tasks are also inserted when the database is initialized.
+
+## Repository Layer
+
+Database queries are isolated inside:
+
+```text
+repositories/postgresRepository.js
+```
+
+The application accesses the repository through:
+
+```text
+services/taskService.js
+```
+
+The HTTP API remains the same:
+
+* `GET /tasks`
+* `GET /tasks/:id`
+* `POST /tasks`
+* `PUT /tasks/:id`
+* `DELETE /tasks/:id`
+
+### Architecture note
+
+The previous version of this project did not already have a separate service and repository architecture.
+
+For A3, I introduced the `taskService` and `postgresRepository` layers while keeping the existing API endpoints and request/response behaviour unchanged.
+
+The storage implementation is now isolated inside the repository so future database changes can be made without changing the API routes.
+
+## Docker
+
+The application and PostgreSQL database are defined in:
+
+```text
+docker-compose.yml
+```
+
+The Node.js application is containerized using:
+
+```text
+Dockerfile
+```
+
+To start the complete stack:
+
+```bash
+docker compose up --build
+```
+
+After the first build, it can also be started with:
+
+```bash
+docker compose up
+```
+
+The API is available at:
+
+```text
+http://localhost:3000
+```
+
+Swagger UI is available at:
+
+```text
+http://localhost:3000/docs
+```
+
+To stop the stack:
+
+```bash
+docker compose down
+```
+
+Do not use `docker compose down -v` if you want to preserve the PostgreSQL data because `-v` removes the Docker volume.
+
+## Persistence Test
+
+Persistence was tested by creating a task through the API:
+
+```json
+{
+  "title": "Persistence test"
+}
+```
+
+The containers were then stopped using:
+
+```bash
+docker compose down
+```
+
+and started again using:
+
+```bash
+docker compose up
+```
+
+After the restart, the `Persistence test` task was still returned by the API.
+
+This confirms that PostgreSQL data is persisted using the `postgres_data` Docker volume.
