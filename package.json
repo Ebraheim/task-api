@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/Ebraheim/task-api#readme",
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
     "better-sqlite3": "^13.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

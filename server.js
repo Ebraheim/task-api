@@ -1,9 +1,11 @@
 require("dotenv").config();
+require("dotenv").config();
 
 const express = require("express");
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./openapi.json");
 const taskService = require("./services/taskService");
+const supabase = require("./config/supabaseClient");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -164,4 +166,5 @@ app.delete("/tasks/:id", async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log("Server running and connected to Supabase");
 });
